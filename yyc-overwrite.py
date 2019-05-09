@@ -67,7 +67,12 @@ if __name__ == "__main__":
     except:
         pass
 
+    def filter_cpp_files(f):
+        ext = os.path.splitext(f)[1][1:]
+        return ext in ["cpp", "h"]
+
     files = os.listdir(src_path)
+    files = list(filter(filter_cpp_files, files))
     file_count = len(files)
     print("Found", file_count, "file(s) to copy")
 
