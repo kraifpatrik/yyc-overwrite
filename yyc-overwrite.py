@@ -1,6 +1,7 @@
 import getpass
 import json
 import os
+import re
 from shutil import copyfile
 
 if __name__ == "__main__":
@@ -8,40 +9,33 @@ if __name__ == "__main__":
     save_conf = False
 
     try:
-        with open("config.json") as f:
-            config = json.load(f)
-        cpp_dir = config["cpp_dir"]
+        with open("config.json") as file:
+            config = json.load(file)
         build_bff_dir = config["build_bff"]
         print("Loaded config.json")
     except:
         save_conf = True
         config = {}
 
-    if not "cpp_dir" in config or not cpp_dir:
-        default = "Cpp"
-        cpp_dir = input("Enter name of project subdirectory containing C++ files [{}]:".format(default))
-        if not cpp_dir:
-            cpp_dir = default
-        config["cpp_dir"] = cpp_dir
-        save_conf = True
-
     if not "build_bff" in config or not build_bff_dir:
-        default = "C:\\Users\\{}\\AppData\\Local\\GameMakerStudio2\\GMS2TEMP\\build.bff".format(getpass.getuser())
-        build_bff_dir = input("Enter path to the build.bff file [{}]: ".format(default))
+        default = "C:\\Users\\{}\\AppData\\Local\\GameMakerStudio2\\GMS2TEMP\\build.bff".format(
+            getpass.getuser())
+        build_bff_dir = input(
+            "Enter path to the build.bff file [{}]: ".format(default))
         if not build_bff_dir:
             build_bff_dir = default
         config["build_bff"] = build_bff_dir
         save_conf = True
 
     if save_conf:
-        with open("config.json", "w") as f:
-            json.dump(config, f, indent=2)
+        with open("config.json", "w") as file:
+            json.dump(config, file, indent=2)
         print("Saved config")
 
     # Load build.bff
     try:
-        with open(build_bff_dir) as f:
-            build = json.load(f)
+        with open(build_bff_dir) as file:
+            build = json.load(file)
         print("Loaded build.bff")
     except:
         print("ERROR: Could not load build.bff!")
@@ -52,43 +46,83 @@ if __name__ == "__main__":
     project_conf = build["config"]
     project_dir = build["projectDir"]
     cache_dir = os.path.dirname(build["preferences"])
-    src_path = os.path.join(project_dir, cpp_dir)
     dest_path = os.path.join(cache_dir, project_name, project_conf, "Scripts")
 
     print("Project:", project_name)
     print("Config:", project_conf)
-    print("Source directory:", src_path)
+    print("Project directory:", project_dir)
     print("Target directory:", dest_path)
 
-    # Get files to copy
-    try:
-        print("Created", cpp_dir, "subdirectory")
-        os.mkdir(src_path)
-    except:
-        pass
+    # Check for permission
+    if input("Do you really want to overwrite the files? [Y/n] ") == "n":
+        print("Canceled")
+        exit(1)
 
-    def filter_cpp_files(f):
-        ext = os.path.splitext(f)[1][1:]
-        return ext in ["cpp", "h"]
+    # Inject C++
+    for file in os.listdir(dest_path):
+        path_dest = os.path.join(dest_path, file)
+        path_src = ""
+        prefix = file[:11]
+        is_script = False
 
-    files = os.listdir(src_path)
-    files = list(filter(filter_cpp_files, files))
-    file_count = len(files)
-    print("Found", file_count, "file(s) to copy")
+        # Reconstruct path of object event
+        if prefix == "gml_Object_":
+            split = file.split("_")
+            file_name = split[-2:]
+            if file_name[0] == "PreCreate":
+                continue
+            file_name[-1] = file_name[-1][:-4]
+            file_name = "_".join(file_name)
+            object_name = "_".join(split[:-2][2:])
+            path_src = os.path.join(project_dir, "objects",
+                                 object_name, file_name)
+        # Reconstruct path of script
+        elif prefix == "gml_Script_":
+            is_script = True
+            name = file[11:-8]
+            path_src = os.path.join(project_dir, "scripts",
+                                 name, "{}.gml".format(name))
 
-    if files:
-        # Check for permission
-        if input("Do you really want to copy the files? [Y/n] ") == "n":
-            print("Copying canceled")
-            exit(1)
+        # File is not a script or event
+        if not path_src:
+            continue
 
-        # Copy files
-        i = 1
-        for f in files:
-            fsrc = os.path.join(src_path, f)
-            fdest = os.path.join(dest_path, f)
-            print("Copying", f, "({}/{})".format(i, file_count))
-            copyfile(fsrc, fdest)
-            i += 1
+        # Read C++ block from GML
+        cpp_str = ""
+        with open(path_src) as f:
+            code_gml = f.read()
+
+            cpp_start = code_gml.find("/*cpp")
+            if cpp_start != -1:
+                cpp_end = code_gml.find("*/", cpp_start)
+                if cpp_end != -1:
+                    cpp_str = code_gml[cpp_start+5:cpp_end].strip()
+
+        # No C++ block found
+        if not cpp_str:
+            print("Skipping", path_dest, "(no C++ blocks found)")
+            continue
+
+        # Overwrite C++
+        print("Overwriting", path_dest)
+
+        with open(path_dest) as f:
+            code_cpp = f.read()
+
+            func_start = code_cpp.find("{}{}".format("YYRValue &" if is_script else "void ", file[:-8]))
+            func_start = code_cpp.find("{", func_start)
+            func_end = code_cpp.rfind("}")
+
+            prefix = "\n"
+            suffix = "\n"
+
+            if is_script:
+                prefix = "\n_result = 0;\n"
+                suffix = "\nreturn _result;\n"
+
+            new_code = code_cpp[:func_start+1] + prefix + cpp_str + suffix + code_cpp[func_end:]
+
+        with open(path_dest, "w") as f:
+            f.write(new_code)
 
     print("Finished")
