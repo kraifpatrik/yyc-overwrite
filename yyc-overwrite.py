@@ -99,7 +99,6 @@ def inject_blocks(string, blocks):
         if l:
             code[l] += b["code"] + "\n"
         else:
-            # TODO Inject into the last one before return _result;
             k = keys[-1]
             last = code[k]
             idx = last.rfind("return _result")
