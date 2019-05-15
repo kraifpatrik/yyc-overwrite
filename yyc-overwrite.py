@@ -4,6 +4,35 @@ import os
 import re
 from shutil import copyfile
 
+def get_cpp_blocks(file):
+    blocks = []
+    line_count = 0
+    block = None
+
+    with open(file) as f:
+        for line in f:
+            line_count += 1
+
+            cpp_start = line.find("/*cpp")
+            if cpp_start != -1:
+                line = line[cpp_start+5:]
+                block = {
+                    "line": line_count,
+                    "code": ""
+                }
+
+            if block:
+                cpp_end = line.find("*/")
+                if cpp_end != -1:
+                    line = line[:cpp_end]
+                    block["code"] = (block["code"] + line).strip()
+                    blocks.append(block)
+                    block = None
+                else:
+                    block["code"] += line
+
+    return blocks
+
 if __name__ == "__main__":
     # Load or create config
     save_conf = False
@@ -89,14 +118,17 @@ if __name__ == "__main__":
 
         # Read C++ block from GML
         cpp_str = ""
-        with open(path_src) as f:
-            code_gml = f.read()
+        try:
+            with open(path_src) as f:
+                code_gml = f.read()
 
-            cpp_start = code_gml.find("/*cpp")
-            if cpp_start != -1:
-                cpp_end = code_gml.find("*/", cpp_start)
-                if cpp_end != -1:
-                    cpp_str = code_gml[cpp_start+5:cpp_end].strip()
+                cpp_start = code_gml.find("/*cpp")
+                if cpp_start != -1:
+                    cpp_end = code_gml.find("*/", cpp_start)
+                    if cpp_end != -1:
+                        cpp_str = code_gml[cpp_start+5:cpp_end].strip()
+        except:
+            continue
 
         # No C++ block found
         if not cpp_str:
