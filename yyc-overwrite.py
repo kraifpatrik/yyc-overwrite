@@ -59,6 +59,64 @@ def reconstruct_gml_path(cpp_path):
     return path_src, is_script
 
 
+def inject_blocks(string, blocks):
+    """ Injects blocks into the string, using YY_STACKTRACE_LINE calls to
+    determine position. """
+
+    # Get indices
+    lut = {}
+    for m in re.finditer(r"YY_STACKTRACE_LINE\((\d+)\)", string):
+        line = int(m.group(1))
+        start = m.start(0)
+        if not line in lut or lut[line] > start:
+            lut[line] = start
+
+    keys = sorted(lut.keys(), reverse=True)
+
+    # Reconstruct lines
+    code = {}
+    end = len(string)
+    for k in keys:
+        start = lut[k]
+        code[k] = string[start:end]
+        end = start
+    code[keys[-1]-1] = string[0:end]
+
+    keys = sorted(code.keys())
+
+    def _get_line_number(block):
+        line = block["line"]
+        idx = None
+        for r in range(1, len(keys)):
+            if keys[r] > line:
+                idx = keys[r-1]
+                break
+        return idx
+
+    # Inject blocks
+    for b in blocks:
+        l = _get_line_number(b)
+        if l:
+            code[l] += b["code"] + "\n"
+        else:
+            # TODO Inject into the last one before return _result;
+            k = keys[-1]
+            last = code[k]
+            idx = last.rfind("return _result")
+            if idx != -1:
+                last = last[:idx] + b["code"] + "\n" + last[idx:]
+            else:
+                last += b["code"]
+            code[k] = last
+
+    # Join back and return
+    result = ""
+    for k in keys:
+        result += code[k]
+
+    return result.strip()
+
+
 if __name__ == "__main__":
     # Load or create config
     save_conf = False
@@ -126,7 +184,7 @@ if __name__ == "__main__":
         cpp_str = ""
         try:
             with open(path_src) as f:
-                cpp_blocks = get_blocks(f.read(), "/*cpp","*/")
+                cpp_blocks = get_blocks(f.read(), "/*cpp", "*/")
                 cpp_str = "\n".join(list(map(lambda b: b["code"], cpp_blocks)))
         except:
             continue
