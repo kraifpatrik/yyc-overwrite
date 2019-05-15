@@ -63,13 +63,18 @@ def inject_blocks(string, blocks):
     """ Injects blocks into the string, using YY_STACKTRACE_LINE calls to
     determine position. """
 
+    stacktrace_call = r"YY_STACKTRACE_LINE\((\d+)\);\n?"
+
     # Get indices
     lut = {}
-    for m in re.finditer(r"YY_STACKTRACE_LINE\((\d+)\)", string):
+    for m in re.finditer(stacktrace_call, string):
         line = int(m.group(1))
         start = m.start(0)
         if not line in lut or lut[line] > start:
             lut[line] = start
+
+    if not lut:
+        raise Exception("No YY_STACKTRACE_LINE found")
 
     keys = sorted(lut.keys(), reverse=True)
 
@@ -113,7 +118,7 @@ def inject_blocks(string, blocks):
     for k in keys:
         result += code[k]
 
-    return result.strip()
+    return re.sub(stacktrace_call, "", result).strip()
 
 
 if __name__ == "__main__":
@@ -166,7 +171,7 @@ if __name__ == "__main__":
     print("Target directory:", dest_path)
 
     # Check for permission
-    if input("Do you really want to overwrite the files? [Y/n] ") == "n":
+    if input("Do you really want to modify the files? [Y/n] ") == "n":
         print("Canceled")
         exit(1)
 
@@ -179,40 +184,63 @@ if __name__ == "__main__":
         if not path_src:
             continue
 
-        # Read C++ block from GML
-        cpp_str = ""
+        # Read C++ blocks from GML
+        cpp_blocks = []
         try:
             with open(path_src) as f:
                 cpp_blocks = get_blocks(f.read(), "/*cpp", "*/")
-                cpp_str = "\n".join(list(map(lambda b: b["code"], cpp_blocks)))
         except:
             continue
 
         # No C++ block found
-        if not cpp_str:
+        if not cpp_blocks:
             print("Skipping", path_dest, "(no C++ blocks found)")
             continue
 
         # Overwrite C++
-        print("Overwriting", path_dest)
+        print("Processing", path_dest)
 
         with open(path_dest) as f:
+            func_name = file[:-8]
+            signature = "{}{}".format(
+                "YYRValue& " if is_script else "void ", func_name)
             code_cpp = f.read()
+            func_start = code_cpp.find(signature)
 
-            func_start = code_cpp.find("{}{}".format(
-                "YYRValue &" if is_script else "void ", file[:-8]))
-            func_start = code_cpp.find("{", func_start)
+            if func_start == -1:
+                print("Function {} not found, skipping!".format(func_name))
+                continue
+
+            func_start = code_cpp.find("{", func_start + len(signature))
             func_end = code_cpp.rfind("}")
+
+            body = code_cpp[func_start+1:func_end]
 
             prefix = "\n"
             suffix = "\n"
 
-            if is_script:
-                prefix = "\n_result = 0;\n"
-                suffix = "\nreturn _result;\n"
+            block_first = cpp_blocks[0]
+            block_first_code = block_first["code"]
+            overwrite_prefix = "-overwrite"
+            overwrite = block_first_code.startswith(overwrite_prefix)
+
+            if overwrite:
+                block_first["code"] = block_first_code[len(
+                    overwrite_prefix):].lstrip()
+                if is_script:
+                    prefix = "\nYY_STACKTRACE_FUNC_ENTRY(\"{}\", 0);\n_result = 0;\n".format(func_name)
+                    suffix = "\nreturn _result;\n"
+                body_new = "\n".join(
+                    list(map(lambda b: b["code"], cpp_blocks)))
+            else:
+                try:
+                    body_new = inject_blocks(body, cpp_blocks)
+                except Exception as e:
+                    print(e)
+                    continue
 
             new_code = code_cpp[:func_start+1] + prefix + \
-                cpp_str + suffix + code_cpp[func_end:]
+                body_new + suffix + code_cpp[func_end:]
 
         with open(path_dest, "w") as f:
             f.write(new_code)
