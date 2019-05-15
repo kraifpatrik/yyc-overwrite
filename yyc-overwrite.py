@@ -4,34 +4,60 @@ import os
 import re
 from shutil import copyfile
 
-def get_cpp_blocks(file):
+
+def get_blocks(string, block_start, block_end):
     blocks = []
     line_count = 0
     block = None
 
-    with open(file) as f:
-        for line in f:
-            line_count += 1
+    for line in string.splitlines(1):
+        line_count += 1
 
-            cpp_start = line.find("/*cpp")
-            if cpp_start != -1:
-                line = line[cpp_start+5:]
-                block = {
-                    "line": line_count,
-                    "code": ""
-                }
+        idx_start = line.find(block_start)
+        if idx_start != -1:
+            line = line[idx_start+len(block_start):]
+            block = {
+                "line": line_count,
+                "code": ""
+            }
 
-            if block:
-                cpp_end = line.find("*/")
-                if cpp_end != -1:
-                    line = line[:cpp_end]
-                    block["code"] = (block["code"] + line).strip()
-                    blocks.append(block)
-                    block = None
-                else:
-                    block["code"] += line
+        if block:
+            idx_end = line.find(block_end)
+            if idx_end != -1:
+                line = line[:idx_end]
+                block["code"] = (block["code"] + line).strip()
+                blocks.append(block)
+                block = None
+            else:
+                block["code"] += line
 
     return blocks
+
+
+def reconstruct_gml_path(cpp_path):
+    path_src = ""
+    prefix = cpp_path[:11]
+    is_script = False
+
+    # Reconstruct path of object event
+    if prefix == "gml_Object_":
+        split = cpp_path.split("_")
+        file_name = split[-2:]
+        if file_name[0] != "PreCreate":
+            file_name[-1] = file_name[-1][:-4]
+            file_name = "_".join(file_name)
+            object_name = "_".join(split[:-2][2:])
+            path_src = os.path.join(project_dir, "objects",
+                                    object_name, file_name)
+    # Reconstruct path of script
+    elif prefix == "gml_Script_":
+        is_script = True
+        name = file[11:-8]
+        path_src = os.path.join(project_dir, "scripts",
+                                name, "{}.gml".format(name))
+
+    return path_src, is_script
+
 
 if __name__ == "__main__":
     # Load or create config
@@ -90,27 +116,7 @@ if __name__ == "__main__":
     # Inject C++
     for file in os.listdir(dest_path):
         path_dest = os.path.join(dest_path, file)
-        path_src = ""
-        prefix = file[:11]
-        is_script = False
-
-        # Reconstruct path of object event
-        if prefix == "gml_Object_":
-            split = file.split("_")
-            file_name = split[-2:]
-            if file_name[0] == "PreCreate":
-                continue
-            file_name[-1] = file_name[-1][:-4]
-            file_name = "_".join(file_name)
-            object_name = "_".join(split[:-2][2:])
-            path_src = os.path.join(project_dir, "objects",
-                                 object_name, file_name)
-        # Reconstruct path of script
-        elif prefix == "gml_Script_":
-            is_script = True
-            name = file[11:-8]
-            path_src = os.path.join(project_dir, "scripts",
-                                 name, "{}.gml".format(name))
+        path_src, is_script = reconstruct_gml_path(file)
 
         # File is not a script or event
         if not path_src:
@@ -120,13 +126,8 @@ if __name__ == "__main__":
         cpp_str = ""
         try:
             with open(path_src) as f:
-                code_gml = f.read()
-
-                cpp_start = code_gml.find("/*cpp")
-                if cpp_start != -1:
-                    cpp_end = code_gml.find("*/", cpp_start)
-                    if cpp_end != -1:
-                        cpp_str = code_gml[cpp_start+5:cpp_end].strip()
+                cpp_blocks = get_blocks(f.read(), "/*cpp","*/")
+                cpp_str = "\n".join(list(map(lambda b: b["code"], cpp_blocks)))
         except:
             continue
 
@@ -141,7 +142,8 @@ if __name__ == "__main__":
         with open(path_dest) as f:
             code_cpp = f.read()
 
-            func_start = code_cpp.find("{}{}".format("YYRValue &" if is_script else "void ", file[:-8]))
+            func_start = code_cpp.find("{}{}".format(
+                "YYRValue &" if is_script else "void ", file[:-8]))
             func_start = code_cpp.find("{", func_start)
             func_end = code_cpp.rfind("}")
 
@@ -152,7 +154,8 @@ if __name__ == "__main__":
                 prefix = "\n_result = 0;\n"
                 suffix = "\nreturn _result;\n"
 
-            new_code = code_cpp[:func_start+1] + prefix + cpp_str + suffix + code_cpp[func_end:]
+            new_code = code_cpp[:func_start+1] + prefix + \
+                cpp_str + suffix + code_cpp[func_end:]
 
         with open(path_dest, "w") as f:
             f.write(new_code)
