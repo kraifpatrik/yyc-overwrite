@@ -34,7 +34,8 @@ def get_blocks(string, block_start, block_end):
     return blocks
 
 
-def reconstruct_gml_path(cpp_path):
+def reconstruct_gml_path(build_bff, cpp_path):
+    project_dir = build_bff.get_project_dir()
     path_src = ""
     prefix = cpp_path[:11]
     is_script = False
@@ -121,6 +122,48 @@ def inject_blocks(string, blocks):
     return re.sub(stacktrace_call, "", result).strip()
 
 
+class BuildBff:
+    """ A wrapper around build.bff file, providing getters to its properties,
+    as well as its default path on the disk.
+
+    Args:
+        path (str): Path to the build.bff file.
+    """
+
+    PATH_DEFAULT = "C:\\Users\\{}\\AppData\\Local\\GameMakerStudio2\\GMS2TEMP\\build.bff".format(
+        getpass.getuser())
+    """ The default path to the build.bff file on Windows. """
+
+    def __init__(self, path):
+        self._path = path
+        with open(path) as f:
+            self._data = json.load(f)
+
+    def get_project_name(self):
+        """ Returns project's name. """
+        return self._data["projectName"]
+
+    def get_project_dir(self):
+        """ Returns path to the project's directory. """
+        return self._data["projectDir"]
+
+    def get_config(self):
+        """ Returns project's configuration (str). """
+        return self._data["config"]
+
+    def get_cache_dir(self):
+        """ Returns path to the YYC cache directory. """
+        return os.path.dirname(self._data["preferences"])
+
+    def get_cpp_dir(self):
+        """ Returns path the to directory with YYC C++ files. """
+        return os.path.join(
+            self.get_cache_dir(),
+            self.get_project_name(),
+            self.get_config(),
+            "Scripts")
+
+
 if __name__ == "__main__":
     # Load or create config
     save_conf = False
@@ -135,8 +178,7 @@ if __name__ == "__main__":
         config = {}
 
     if not "build_bff" in config or not build_bff_dir:
-        default = "C:\\Users\\{}\\AppData\\Local\\GameMakerStudio2\\GMS2TEMP\\build.bff".format(
-            getpass.getuser())
+        default = BuildBff.PATH_DEFAULT
         build_bff_dir = input(
             "Enter path to the build.bff file [{}]: ".format(default))
         if not build_bff_dir:
@@ -151,24 +193,19 @@ if __name__ == "__main__":
 
     # Load build.bff
     try:
-        with open(build_bff_dir) as file:
-            build = json.load(file)
+        build = BuildBff(build_bff_dir)
         print("Loaded build.bff")
     except:
         print("ERROR: Could not load build.bff!")
         exit(1)
 
-    # Get project info
-    project_name = build["projectName"]
-    project_conf = build["config"]
-    project_dir = build["projectDir"]
-    cache_dir = os.path.dirname(build["preferences"])
-    dest_path = os.path.join(cache_dir, project_name, project_conf, "Scripts")
+    # Project info
+    path_cpp = build.get_cpp_dir()
 
-    print("Project:", project_name)
-    print("Config:", project_conf)
-    print("Project directory:", project_dir)
-    print("Target directory:", dest_path)
+    print("Project:", build.get_project_name())
+    print("Config:", build.get_config())
+    print("Project directory:", build.get_project_dir())
+    print("Target directory:", path_cpp)
 
     # Check for permission
     if input("Do you really want to modify the files? [Y/n] ") == "n":
@@ -176,9 +213,9 @@ if __name__ == "__main__":
         exit(1)
 
     # Inject C++
-    for file in os.listdir(dest_path):
-        path_dest = os.path.join(dest_path, file)
-        path_src, is_script = reconstruct_gml_path(file)
+    for file in os.listdir(path_cpp):
+        path_dest = os.path.join(path_cpp, file)
+        path_src, is_script = reconstruct_gml_path(build, file)
 
         # File is not a script or event
         if not path_src:
@@ -228,7 +265,8 @@ if __name__ == "__main__":
                 block_first["code"] = block_first_code[len(
                     overwrite_prefix):].lstrip()
                 if is_script:
-                    prefix = "\nYY_STACKTRACE_FUNC_ENTRY(\"{}\", 0);\n_result = 0;\n".format(func_name)
+                    prefix = "\nYY_STACKTRACE_FUNC_ENTRY(\"{}\", 0);\n_result = 0;\n".format(
+                        func_name)
                     suffix = "\nreturn _result;\n"
                 body_new = "\n".join(
                     list(map(lambda b: b["code"], cpp_blocks)))
