@@ -4,6 +4,21 @@ import os
 import re
 from shutil import copyfile
 
+REGEX_STACKTRACE_LINE = r"YY_STACKTRACE_LINE\((\d+)\);\n?"
+
+NATIVE_TYPES = {
+    "bool": "bool",
+    "char": "char",
+    "int": "int",
+    "longlong": "long long",
+    "float": "float",
+    "double": "double",
+}
+
+
+def remove_stacktrace_lines(string):
+    return re.sub(REGEX_STACKTRACE_LINE, "", string)
+
 
 def get_blocks(string, block_start, block_end):
     blocks = []
@@ -32,6 +47,50 @@ def get_blocks(string, block_start, block_end):
                 block["code"] += line
 
     return blocks
+
+
+def get_native_types(string):
+    types = []
+
+    rgx = r"((?:(?:static|const)\s+)*)(u?)({})_t\s+(\w+)\s*=".format("|".join(NATIVE_TYPES.keys()))
+
+    for m in re.finditer(rgx, string):
+        g1 = m.group(1)
+        types.append({
+            "static": "static" in g1,
+            "const": "const" in g1,
+            "unsigned": "u" in m.group(2),
+            "type": NATIVE_TYPES[m.group(3)],
+            "name": m.group(4),
+        })
+
+    return types
+
+
+def inject_native_types(types, string):
+    for t in types:
+        name = t["name"]
+        static = t["static"]
+        const = t["const"]
+        unsigned = t["unsigned"]
+        val = ""
+
+        if static or const:
+            for m in re.finditer(r"local_{}=([^;])+;\n*".format(name), string):
+                val = " = {}".format(m.group(1))
+                span = m.span()
+                string = string[:span[0]] + string[span[1]:]
+
+        original = "YYRValue local_{};".format(name)
+        new = "{static}{const}{unsigned}{type} local_{name}{val};".format(
+            static="static " if static else "",
+            const="const " if const else "",
+            unsigned="unsigned " if unsigned else "",
+            type=t["type"],
+            name=name,
+            val=val)
+        string = string.replace(original, new)
+    return string
 
 
 def reconstruct_gml_path(cpp_path):
@@ -63,11 +122,9 @@ def inject_blocks(string, blocks):
     """ Injects blocks into the string, using YY_STACKTRACE_LINE calls to
     determine position. """
 
-    stacktrace_call = r"YY_STACKTRACE_LINE\((\d+)\);\n?"
-
     # Get indices
     lut = {}
-    for m in re.finditer(stacktrace_call, string):
+    for m in re.finditer(REGEX_STACKTRACE_LINE, string):
         line = int(m.group(1))
         start = m.start(0)
         if not line in lut or lut[line] > start:
@@ -118,7 +175,7 @@ def inject_blocks(string, blocks):
     for k in keys:
         result += code[k]
 
-    return re.sub(stacktrace_call, "", result).strip()
+    return result
 
 
 if __name__ == "__main__":
@@ -186,14 +243,17 @@ if __name__ == "__main__":
 
         # Read C++ blocks from GML
         cpp_blocks = []
+        cpp_types = []
         try:
             with open(path_src) as f:
-                cpp_blocks = get_blocks(f.read(), "/*cpp", "*/")
+                fcontent = f.read()
+                cpp_blocks = get_blocks(fcontent, "/*cpp", "*/")
+                cpp_types = get_native_types(fcontent)
         except:
             continue
 
         # No C++ block found
-        if not cpp_blocks:
+        if not cpp_blocks and not cpp_types:
             print("Skipping", path_dest, "(no C++ blocks found)")
             continue
 
@@ -215,29 +275,38 @@ if __name__ == "__main__":
             func_end = code_cpp.rfind("}")
 
             body = code_cpp[func_start+1:func_end]
+            body_new = body
 
-            prefix = "\n"
-            suffix = "\n"
+            prefix = ""
+            suffix = ""
 
-            block_first = cpp_blocks[0]
-            block_first_code = block_first["code"]
-            overwrite_prefix = "-overwrite"
-            overwrite = block_first_code.startswith(overwrite_prefix)
+            if cpp_blocks:
+                prefix = "\n"
+                suffix = "\n"
 
-            if overwrite:
-                block_first["code"] = block_first_code[len(
-                    overwrite_prefix):].lstrip()
-                if is_script:
-                    prefix = "\nYY_STACKTRACE_FUNC_ENTRY(\"{}\", 0);\n_result = 0;\n".format(func_name)
-                    suffix = "\nreturn _result;\n"
-                body_new = "\n".join(
-                    list(map(lambda b: b["code"], cpp_blocks)))
-            else:
-                try:
-                    body_new = inject_blocks(body, cpp_blocks)
-                except Exception as e:
-                    print(e)
-                    continue
+                block_first = cpp_blocks[0]
+                block_first_code = block_first["code"]
+                overwrite_prefix = "-overwrite"
+                overwrite = block_first_code.startswith(overwrite_prefix)
+
+                if overwrite:
+                    block_first["code"] = block_first_code[len(
+                        overwrite_prefix):].lstrip()
+                    if is_script:
+                        prefix = "\nYY_STACKTRACE_FUNC_ENTRY(\"{}\", 0);\n_result = 0;\n".format(
+                            func_name)
+                        suffix = "\nreturn _result;\n"
+                    body_new = "\n".join(
+                        list(map(lambda b: b["code"], cpp_blocks)))
+                else:
+                    try:
+                        body_new = inject_blocks(body, cpp_blocks)
+                    except Exception as e:
+                        print(e)
+                        continue
+
+            body_new = inject_native_types(cpp_types, body_new)
+            body_new = remove_stacktrace_lines(body_new)
 
             new_code = code_cpp[:func_start+1] + prefix + \
                 body_new + suffix + code_cpp[func_end:]
