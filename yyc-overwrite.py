@@ -14,6 +14,10 @@ NATIVE_TYPES = {
     "float": "float",
     "double": "double",
 }
+""" Translation table from type macros in GML to C++ types. Macros must always
+have `_t` suffix (eg. `bool_t` instead of `bool` only)! For unsigned types use
+prefix `u` (eg. `uint_t` for `unsigned int`). Unsigned types cannot be casted to
+YYRValue, so use it only if you know what you're doing! """
 
 
 def remove_stacktrace_lines(string):
@@ -52,7 +56,7 @@ def get_blocks(string, block_start, block_end):
 def get_native_types(string):
     types = []
 
-    rgx = r"((?:(?:static|const)\s+)*)(u?)({})_t\s+(\w+)\s*=".format("|".join(NATIVE_TYPES.keys()))
+    rgx = r"((?:(?:static|const)\s+)*)(u?)({})_t\s+(\w+)".format("|".join(NATIVE_TYPES.keys()))
 
     for m in re.finditer(rgx, string):
         g1 = m.group(1)
@@ -76,7 +80,8 @@ def inject_native_types(types, string):
         val = ""
 
         if static or const:
-            for m in re.finditer(r"local_{}=([^;])+;\n*".format(name), string):
+            m = re.search(r"local_{}=([^;])+;\n*".format(name), string)
+            if m:
                 val = " = {}".format(m.group(1))
                 span = m.span()
                 string = string[:span[0]] + string[span[1]:]
@@ -291,7 +296,7 @@ if __name__ == "__main__":
 
         # No C++ block found
         if not cpp_blocks and not cpp_types:
-            print("Skipping", path_dest, "(no C++ blocks found)")
+            print("Skipping", path_dest, "(no modifications found)")
             continue
 
         # Overwrite C++

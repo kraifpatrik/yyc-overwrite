@@ -9,11 +9,41 @@ A simple command line tool that allows you to easily overwrite C++ files generat
 3. Run the tool using `python yyc-overwite.py`
 4. It will ask for the path to the build.bff file. You can just press enter to leave the default value.
 5. The tool now prints some info about the project, including "Target directory", which is the YYC cache directory where you can find the original C++ files.
-6. In GM, you can now write comment blocks with C++, which will either be injected or overwrite the generated function - see examples.
+6. In GM, you can now write code that will be used to modify the generated functions - see examples.
 7. Run the tool again using the same command as in `3.`, it will now modify the C++ files.
 
+**The tool currently automatically removes all `YY_STACKTRACE_LINE`s from modified files!** This increases performance, but it also means that GameMaker won't tell you correct lines in error messages if an error occurs inside the modifed files.
+
 ## Examples
-When the comment tag starts with `cpp-overwrite`, the entire body of the generated file will be replaced with the content of the comment block. Overwriting is idempotent - can be called multiple times without cleaning cache or running the project again.
+### Native C++ types for local variables [EXPERIMENTAL!]
+1. Put following macro definitions somewhere in you project.
+```
+#macro const ;
+#macro static ;
+#macro bool_t var
+#macro char_t var
+#macro int_t var
+#macro longlong_t var
+#macro float_t var
+#macro double_t var
+```
+2. You can now define typed local variables using the macros, eg:
+```cpp
+/// @func get_counter()
+static int_t _counter = 0;
+return _counter++;
+
+/// @desc Create event
+show_debug_message(get_counter()); // => 0
+show_debug_message(get_counter()); // => 1
+show_debug_message(get_counter()); // => 2
+```
+3. Run YYC Overwrite to inject the types. Injecting types is idempotent - can be done multiple times without cleaning cache or running the project again. 
+
+**Please note that this is an experimental feature and the resulting code may be incorrect in some cases. If you do find such case, please let me know.**
+
+### Custom C++
+When the comment tag starts with `cpp-overwrite`, the entire body of the generated function will be replaced with the content of the comment block. Overwriting is idempotent - can be done multiple times without cleaning cache or running the project again.
 
 ```js
 /*cpp-overwrite
@@ -36,4 +66,4 @@ If a comment block starts with `cpp` only, its content will be injected at given
 /*cpp } */
 ```
 
-Injecting is currently not idempotent - you will have to clean cache or run the project before injecting code again! `YY_STACKTRACE_LINE` calls are automatically removed during injection.
+Injecting is currently not idempotent - you will have to clean cache or run the project before injecting code again!
