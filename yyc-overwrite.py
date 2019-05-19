@@ -77,23 +77,29 @@ def inject_native_types(types, string):
         static = t["static"]
         const = t["const"]
         unsigned = t["unsigned"]
+        type_ = t["type"]
         val = ""
 
+        name_cpp = "local_{}".format(name)
+
         if static or const:
-            m = re.search(r"local_{}=([^;])+;\n*".format(name), string)
+            m = re.search(r"{}=([^;])+;\n*".format(name_cpp), string)
             if m:
                 val = " = {}".format(m.group(1))
                 span = m.span()
                 string = string[:span[0]] + string[span[1]:]
 
-        string = re.sub(r"local_{}\.as\w+\(\)".format(name), "local_{}".format(name), string)
+        string = re.sub(r"{}\.as\w+\(\)".format(name_cpp), name_cpp, string)
+
+        if type_ == "bool":
+            string = re.sub(r"BOOL_RValue\(.*{}[^)]*\)".format(name_cpp), name_cpp, string)
 
         original = "YYRValue local_{};".format(name)
         new = "{static}{const}{unsigned}{type} local_{name}{val};".format(
             static="static " if static else "",
             const="const " if const else "",
             unsigned="unsigned " if unsigned else "",
-            type=t["type"],
+            type=type_,
             name=name,
             val=val)
         string = string.replace(original, new)
