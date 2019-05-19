@@ -86,6 +86,8 @@ def inject_native_types(types, string):
                 span = m.span()
                 string = string[:span[0]] + string[span[1]:]
 
+        string = re.sub(r"local_{}\.as\w+\(\)".format(name), "local_{}".format(name), string)
+
         original = "YYRValue local_{};".format(name)
         new = "{static}{const}{unsigned}{type} local_{name}{val};".format(
             static="static " if static else "",
