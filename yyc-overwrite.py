@@ -303,9 +303,9 @@ if __name__ == "__main__":
             continue
 
         # No C++ block found
-        if not cpp_blocks and not cpp_types:
-            print("Skipping", path_dest, "(no modifications found)")
-            continue
+        # if not cpp_blocks and not cpp_types:
+        #     print("Skipping", path_dest, "(no modifications found)")
+        #     continue
 
         # Overwrite C++
         print("Processing", path_dest)
@@ -355,7 +355,9 @@ if __name__ == "__main__":
                         print(e)
                         continue
 
-            body_new = inject_native_types(cpp_types, body_new)
+            if cpp_types:
+                body_new = inject_native_types(cpp_types, body_new)
+
             body_new = remove_stacktrace_lines(body_new)
 
             new_code = code_cpp[:func_start+1] + prefix + \
