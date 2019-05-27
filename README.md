@@ -4,15 +4,16 @@ A simple command line tool that allows you to easily overwrite C++ files generat
 **Requires [Python 3](https://www.python.org/downloads/)**
 
 ## How to use
-1. Open your GameMaker Studio 2 project and run it using YYC.
-2. Near the top of the Output console you will se a line like `"C:\ProgramData/GameMakerStudio2/Cache/runtimes\runtime-2.2.2.326/bin/Igor.exe"  -j=12 -options="C:\Users\kraif\AppData\Local\GameMakerStudio2\GMS2TEMP\build.bff"  -- Windows Run`. The options path is required by the tool.
-3. Run the tool using `python yyc-overwite.py`
-4. It will ask for the path to the build.bff file. You can just press enter to leave the default value.
-5. The tool now prints some info about the project, including "Target directory", which is the YYC cache directory where you can find the original C++ files.
-6. In GM, you can now write code that will be used to modify the generated functions - see examples.
-7. Run the tool again using the same command as in `3.`, it will now modify the C++ files.
+1. Remove all `gml_pragma("forceinline")` from your project, it causes automatical overwriting of all C++ files, disabling their modification!
+2. Open your GameMaker Studio 2 project and run it using YYC.
+3. Near the top of the Output console you will se a line like `"C:\ProgramData/GameMakerStudio2/Cache/runtimes\runtime-2.2.2.326/bin/Igor.exe"  -j=12 -options="C:\Users\kraif\AppData\Local\GameMakerStudio2\GMS2TEMP\build.bff"  -- Windows Run`. The options path is required by the tool.
+4. Run the tool using `python yyc-overwite.py`
+5. It will ask for the path to the build.bff file. You can just press enter to leave the default value.
+6. The tool now prints some info about the project, including "Target directory", which is the YYC cache directory where you can find the original C++ files.
+7. In GM, you can now write code that will be used to modify the generated functions - see examples.
+8. Run the tool again using the same command as in `3.`, it will now modify the C++ files.
 
-**The tool currently automatically removes all `YY_STACKTRACE_LINE`s from modified files!** This increases performance, but it also means that GameMaker won't tell you correct lines in error messages if an error occurs inside the modifed files.
+**The tool currently automatically removes all `YY_STACKTRACE_LINE`s from all files! This increases performance, but it also means that GameMaker won't tell you correct lines in error messages if an error occurs!**
 
 ## Examples
 ### Native C++ types for local variables [EXPERIMENTAL!]
@@ -43,7 +44,7 @@ show_debug_message(get_counter()); // => 2
 **Please note that this is an experimental feature and the resulting code may be incorrect in some cases. If you do find such case, please let me know.**
 
 ### Custom C++
-When the comment tag starts with `cpp-overwrite`, the entire body of the generated function will be replaced with the content of the comment block. Overwriting is idempotent - can be done multiple times without cleaning cache or running the project again.
+If a comment block starts with `cpp-overwrite`, the entire body of the generated function will be replaced with the content of that block. Overwriting is idempotent - can be done multiple times without cleaning cache or running the project again.
 
 ```js
 /*cpp-overwrite
