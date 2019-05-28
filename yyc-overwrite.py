@@ -73,6 +73,8 @@ def get_native_types(string):
 
 
 def inject_native_types(types, string):
+    counter = 0
+
     for t in types:
         name = t["name"]
         static = t["static"]
@@ -83,12 +85,26 @@ def inject_native_types(types, string):
 
         name_cpp = "local_{}".format(name)
 
-        if static or const:
-            m = re.search(r"{}=([^;])+;\n*".format(name_cpp), string)
-            if m:
-                val = " = {}".format(m.group(1))
-                span = m.span()
-                string = string[:span[0]] + string[span[1]:]
+        m = re.search(r"{}=([^;]+);\n*".format(name_cpp), string)
+        if m:
+            print(m.group(1))
+            val = " = {}".format(m.group(1))
+            span = m.span()
+            string = string[:span[0]] + string[span[1]:]
+    
+        while True:
+            m = re.search(r"&/\* local \*/{}".format(name_cpp), string)
+            if not m:
+                break
+            ref_name = "__nativeref{}__".format(counter)
+            span = m.span()
+            string = string[:span[0]] + "&" + ref_name + string[span[1]:]
+            idx = string.rfind("\n", 0, span[0])
+            if idx != -1:
+                string = string[:idx] + "\nYYRValue {}({});".format(ref_name, name_cpp) + string[idx:]
+            else:
+                pass
+            counter += 1
 
         string = re.sub(r"{}\.as\w+\(\)".format(name_cpp), name_cpp, string)
 
