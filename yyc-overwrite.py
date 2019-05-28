@@ -85,25 +85,28 @@ def inject_native_types(types, string):
 
         name_cpp = "local_{}".format(name)
 
+        # Initialization
         m = re.search(r"{}=([^;]+);\n*".format(name_cpp), string)
         if m:
             print(m.group(1))
             val = " = {}".format(m.group(1))
             span = m.span()
             string = string[:span[0]] + string[span[1]:]
-    
+
+        # Passing as arguments
         while True:
-            m = re.search(r"&/\* local \*/{}".format(name_cpp), string)
+            m = re.search(r"&\s*/\*\s*local\s*\*/\s*{}".format(name_cpp), string)
             if not m:
                 break
-            ref_name = "__nativeref{}__".format(counter)
+            name_ref = "__native_ref{}__".format(counter)
             span = m.span()
-            string = string[:span[0]] + "&" + ref_name + string[span[1]:]
+            string = string[:span[0]] + "&" + name_ref + string[span[1]:]
             idx = string.rfind("\n", 0, span[0])
             idx = 0 if idx == -1 else idx
-            string = string[:idx] + "\nYYRValue {}({});".format(ref_name, name_cpp) + string[idx:]
+            string = string[:idx] + "\nYYRValue {}({});".format(name_ref, name_cpp) + string[idx:]
             counter += 1
 
+        # Remove casts
         string = re.sub(r"{}\.as\w+\(\)".format(name_cpp), name_cpp, string)
 
         if type_ == "bool":
