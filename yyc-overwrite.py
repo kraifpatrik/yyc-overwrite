@@ -100,10 +100,8 @@ def inject_native_types(types, string):
             span = m.span()
             string = string[:span[0]] + "&" + ref_name + string[span[1]:]
             idx = string.rfind("\n", 0, span[0])
-            if idx != -1:
-                string = string[:idx] + "\nYYRValue {}({});".format(ref_name, name_cpp) + string[idx:]
-            else:
-                pass
+            idx = 0 if idx == -1 else idx
+            string = string[:idx] + "\nYYRValue {}({});".format(ref_name, name_cpp) + string[idx:]
             counter += 1
 
         string = re.sub(r"{}\.as\w+\(\)".format(name_cpp), name_cpp, string)
@@ -227,7 +225,7 @@ def process_cpp(file, build=None, path_cpp=None):
     if path_cpp:
         path_dest = os.path.join(path_cpp, file)
     else:
-        raise "One build or path_cpp must be defined!"
+        raise "Either build or path_cpp must be defined!"
 
     try:
         path_src, is_script = reconstruct_gml_path(build, file)
