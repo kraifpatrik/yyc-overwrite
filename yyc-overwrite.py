@@ -86,12 +86,13 @@ def inject_native_types(types, string):
         name_cpp = "local_{}".format(name)
 
         # Initialization
-        m = re.search(r"{}=([^;]+);\n*".format(name_cpp), string)
-        if m:
-            print(m.group(1))
-            val = " = {}".format(m.group(1))
-            span = m.span()
-            string = string[:span[0]] + string[span[1]:]
+        if static or const:
+            m = re.search(r"{}=([^;]+);\n*".format(name_cpp), string)
+            if m:
+                print(m.group(1))
+                val = " = {}".format(m.group(1))
+                span = m.span()
+                string = string[:span[0]] + string[span[1]:]
 
         # Passing as arguments
         while True:
