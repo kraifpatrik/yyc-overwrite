@@ -352,7 +352,8 @@ class BuildBff:
             self.get_cache_dir(),
             self.get_project_name(),
             self.get_config(),
-            "Scripts")
+            "Scripts",
+            "llvm-win")
 
 
 if __name__ == "__main__":
