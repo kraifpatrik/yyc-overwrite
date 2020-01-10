@@ -1,10 +1,56 @@
 import json
 import os
 import sys
+import time
+
+from termcolor import cprint
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from src.build_bff import BuildBff
 from src.processor import Processor
 from src.utils import *
+
+
+class EventHandler(FileSystemEventHandler):
+    def __init__(self, build):
+        super(EventHandler, self).__init__()
+        self.build = build
+        self.modified = {}
+
+    def on_create(self, event):
+        self._process(event)
+
+    def on_modified(self, event):
+        self._process(event)
+
+    def _process(self, event):
+        fpath = event.src_path
+        if not fpath in self.modified:
+            self.modified[fpath] = False
+        if self.modified[fpath]:
+            self.modified[fpath] = False
+            return
+        process_file(fpath, build)
+        self.modified[fpath] = True
+
+
+def process_file(cpp_path, build):
+    if not file_is_cpp(cpp_path):
+        return
+    print(cpp_path, "... ", end="")
+    fname = os.path.basename(cpp_path)
+    gml_path, is_script = reconstruct_gml_path(build, fname)
+    if not gml_path:
+        cprint("cannot find GML source, skipping!", "yellow")
+        return
+    try:
+        Processor.inject_types(cpp_path, gml_path)
+        if is_script:
+            Processor.handle_threading(cpp_path, gml_path)
+        cprint("processed", "green")
+    except FileNotFoundError:
+        pass
 
 
 if __name__ == "__main__":
@@ -56,38 +102,34 @@ if __name__ == "__main__":
 
     print("Target directory:", path_cpp)
 
-    # Check for permission
-    if input("Do you really want to modify the files? [Y/n] ") == "n":
-        print("Canceled")
-        exit()
-
-    # Copy custom headers
-    for f in os.listdir("./cpp"):
-        copy_file(os.path.join("./cpp", f), path_cpp)
-
-    # Modify C++ files
     try:
+        # Check for permission
+        if input("Do you really want to modify the files? [Y/n] ") == "n":
+            cprint("Canceled", "magenta")
+            exit()
+
+        # Copy custom headers
+        for f in os.listdir("./cpp"):
+            copy_file(os.path.join("./cpp", f), path_cpp)
+
+         # Modify C++ files
         for root, _, files in os.walk(path_cpp):
             for fname in files:
-                if not file_is_cpp(fname):
-                    continue
-                print(fname, "... ", end="")
                 cpp_path = os.path.join(root, fname)
-                gml_path, is_script = reconstruct_gml_path(build, fname)
-                if not gml_path:
-                    print("cannot find GML source, skipping!")
-                    continue
-                try:
-                    Processor.inject_types(cpp_path, gml_path)
-                    if is_script:
-                        Processor.handle_threading(cpp_path, gml_path)
-                    print("processed")
-                except FileNotFoundError:
-                    pass
+                process_file(cpp_path, build)
+
+        event_handler = EventHandler(build)
+        observer = Observer()
+        observer.schedule(event_handler, path_cpp, recursive=True)
+        observer.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
 
     except KeyboardInterrupt:
         # Ignore Ctrl+C
         print()
         pass
-
-    print("Finished")

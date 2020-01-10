@@ -13,9 +13,19 @@
 	YYRValue** _args = threadArgs->_args; \
 	YYRValue _result;
 
-// Use before every return in _threadFunc to free ThreadArgs from memory!
+// Use before every return in threads to free ThreadArgs from memory!
 #define FREE_ARGS() \
 	delete threadArgs;
+
+struct Cpu
+{
+	static int getCpuCount()
+	{
+		SYSTEM_INFO systemInfo;
+		GetSystemInfo(&systemInfo);
+		return (int) systemInfo.dwNumberOfProcessors;
+	}
+};
 
 /** Used to pass arguments from script functions into thread functions. */
 struct ThreadArgs

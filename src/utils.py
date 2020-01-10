@@ -1,6 +1,8 @@
 import os
 import shutil
 
+from termcolor import cprint
+
 
 def file_is_cpp(file):
     return file[-8:] == ".gml.cpp"
@@ -12,6 +14,10 @@ def cpp_is_script(file):
 
 def cpp_is_event(file):
     return file[:11] == "gml_Object_"
+
+
+def cpp_is_room(file):
+    return file[:9] == "gml_Room_"
 
 
 def reconstruct_gml_path(build_bff, cpp_path):
@@ -47,4 +53,4 @@ def copy_file(src, path_cpp):
     except:
         pass
     shutil.copyfile(src, dest)
-    print("done")
+    cprint("done", "green")

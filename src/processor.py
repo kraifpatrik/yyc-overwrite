@@ -25,20 +25,42 @@ class Processor(object):
         matches = re.findall(REGEX_VAR, gml_content)
 
         if matches:
+            counter = 0
+
             for m in matches:
                 name = m[0]
                 type_ = m[1].strip()
 
+                name_cpp = "local_{}".format(name)
+
                 # Replace type
                 cpp_content = cpp_content.replace(
-                    "YYRValue local_{}".format(name),
-                    "{} local_{}".format(type_, name))
+                    "YYRValue {}".format(name_cpp),
+                    "{} {}".format(type_, name_cpp))
 
-                # Replace var.asReal() with var
+                # Passing as arguments
+                while True:
+                    m = re.search(
+                        r"&\s*/\*\s*local\s*\*/\s*{}".format(name_cpp), cpp_content)
+                    if not m:
+                        break
+                    name_ref = "__native_ref{}__".format(counter)
+                    span = m.span()
+                    cpp_content = cpp_content[:span[0]] + "&" + \
+                        name_ref + cpp_content[span[1]:]
+                    idx = cpp_content.rfind("\n", 0, span[0])
+                    idx = 0 if idx == -1 else idx
+                    cpp_content = cpp_content[:idx] + "\nYYRValue {}({});".format(
+                        name_ref, name_cpp) + cpp_content[idx:]
+                    counter += 1
+
+                # Remove casts
                 cpp_content = re.sub(
-                    r"local_{}\.asReal\(\)".format(name),
-                    "local_{}".format(name),
-                    cpp_content)
+                    r"{}\.as\w+\(\)".format(name_cpp), name_cpp, cpp_content)
+
+                if type_ == "bool":
+                    cpp_content = re.sub(
+                        r"BOOL_RValue\(.*{}[^)]*\)".format(name_cpp), name_cpp, cpp_content)
 
         cpp_content = Processor.remove_stacktrace_lines(cpp_content)
 
@@ -81,7 +103,7 @@ class Processor(object):
         body_old = cpp_content[start:end]
 
         thread_body = body_old.replace(
-            "return _result;", "FREE_ARGS();\nreturn _result;")
+            "return _result;", "FREE_ARGS();\nreturn 0;")
 
         body_new = (
             "\n"
