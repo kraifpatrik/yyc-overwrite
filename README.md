@@ -33,7 +33,7 @@ python yyc-overwite.py
 5. It will ask for the path to the build.bff file. You can just press enter to leave the default value.
 6. The tool now prints some info about the project, including "Target directory", which is the YYC cache directory where you can find the original C++ files.
 7. In GM, you can now write code that will be used to modify the generated functions - see examples.
-8. Run the tool again using the same command as in `4.`, it will now modify the C++ files.
+8. YYC Overwrite keeps running until you close it and it automatically detects changes to files and modifies them again when necessary.
 
 # Examples
 ## Native C++ types for local variables
