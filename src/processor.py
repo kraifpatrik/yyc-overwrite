@@ -93,7 +93,8 @@ class Processor(object):
         thread_funcname = "{}_thread".format(name)
         signature = "DWORD WINAPI {}(LPVOID lpParam)".format(thread_funcname)
 
-        idx = cpp_content.find(name)
+        idx = cpp_content.find(
+            "YYRValue& {}( CInstance* pSelf, CInstance* pOther, YYRValue& _result, int _count,  YYRValue** _args  )".format(name))
         if idx == -1:
             return
 
