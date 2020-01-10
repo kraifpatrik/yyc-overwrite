@@ -20,6 +20,10 @@
 
 # Installation
 * Install [Python 3](https://www.python.org/downloads/)
+* Install required packages by running following command from the repo's directory:
+```cmd
+pip install -r requirements.txt
+```
 * Use [Catalyst](https://github.com/GameMakerHub/Catalyst) to install [yyc-overwrite-gml](https://github.com/kraifpatrik/yyc-overwrite-gml) into your project
 
 # How to use
