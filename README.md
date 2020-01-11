@@ -12,11 +12,8 @@
 # Features
 * Define local variables with native C++ types
 * Multithreading with mutexes and semaphores
-* Cleanup C++ to increase performance*
 
 *Currently only Windows is supported!*
-
->\* The tool automatically removes code that keeps track of which line of code is being executed. This increases performance, but it also means that GameMaker won't tell you correct lines in error messages if an error occurs!
 
 # Installation
 * Install [Python 3](https://www.python.org/downloads/)
@@ -29,7 +26,7 @@ pip install -r requirements.txt
 # How to use
 1. Open your GameMaker Studio 2 project.
 2. Run the project using YYC.
-3. Near the top of the Output console you will se a line like `"C:\ProgramData/GameMakerStudio2/Cache/runtimes\runtime-2.2.2.326/bin/Igor.exe"  -j=12 -options="C:\Users\kraif\AppData\Local\GameMakerStudio2\GMS2TEMP\build.bff"  -- Windows Run`. The options path is required by the tool.
+3. Near the top of the Output console you will see a line like `"C:\ProgramData/GameMakerStudio2/Cache/runtimes\runtime-2.2.2.326/bin/Igor.exe"  -j=12 -options="C:\Users\kraif\AppData\Local\GameMakerStudio2\GMS2TEMP\build.bff"  -- Windows Run`. The options path is required by the tool.
 4. Run the tool from the command line using
 ```
 python yyc-overwite.py

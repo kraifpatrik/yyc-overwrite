@@ -1,8 +1,6 @@
 import os
 import re
 
-REGEX_STACKTRACE_LINE = r"YY_STACKTRACE_LINE\((\d+)\);\n?"
-
 # var varName /* :type */
 REGEX_VAR = r"var\s+([_\w]+)\s*/\*\s*:\s*(.+)\s*\*/"
 
@@ -10,10 +8,6 @@ MACRO_THREAD = "YYC_THREAD"
 
 
 class Processor(object):
-    @staticmethod
-    def remove_stacktrace_lines(string):
-        return re.sub(REGEX_STACKTRACE_LINE, "", string)
-
     @staticmethod
     def inject_types(cpp_path, gml_path):
         with open(gml_path, "r") as f:
@@ -61,8 +55,6 @@ class Processor(object):
                 if type_ == "bool":
                     cpp_content = re.sub(
                         r"BOOL_RValue\(.*{}[^)]*\)".format(name_cpp), name_cpp, cpp_content)
-
-        cpp_content = Processor.remove_stacktrace_lines(cpp_content)
 
         with open(cpp_path, "w") as f:
             f.write(cpp_content)
