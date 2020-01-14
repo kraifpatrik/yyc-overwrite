@@ -86,7 +86,7 @@ struct Mutex
 	{
 		HANDLE hMutex; 
 		hMutex = OpenMutex( 
-			MUTEX_ALL_ACCESS,
+			NULL,
 			FALSE,
 			TEXT(name));
 		WaitForSingleObject( 
@@ -99,7 +99,7 @@ struct Mutex
 	{
 		HANDLE hMutex; 
 		hMutex = OpenMutex( 
-			MUTEX_ALL_ACCESS,
+			NULL,
 			FALSE,
 			TEXT(name));
 		ReleaseMutex(hMutex);
@@ -122,7 +122,7 @@ struct Semaphore
 	{
 		HANDLE hSemaphore; 
 		hSemaphore = OpenSemaphore( 
-			MUTEX_ALL_ACCESS,
+			SEMAPHORE_ALL_ACCESS,
 			FALSE,
 			TEXT(name));
 		WaitForSingleObject( 
@@ -133,12 +133,15 @@ struct Semaphore
 
 	static void release(const char* name)
 	{
-		HANDLE hSemaphore; 
+		HANDLE hSemaphore;
 		hSemaphore = OpenSemaphore( 
-			MUTEX_ALL_ACCESS,
+			SEMAPHORE_ALL_ACCESS | SEMAPHORE_MODIFY_STATE,
 			FALSE,
 			TEXT(name));
-		ReleaseSemaphore(hSemaphore, 1, NULL);
+		ReleaseSemaphore(
+			hSemaphore,
+			1,
+			NULL);
 		CloseHandle(hSemaphore);
 	}
 };
