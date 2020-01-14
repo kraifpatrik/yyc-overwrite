@@ -8,6 +8,7 @@
 * [Installation](#installation)
 * [How to use](#how-to-use)
 * [Examples](#examples)
+* [Libraries](#libraries)
 
 # Features
 * Define local variables with native C++ types
@@ -96,3 +97,8 @@ repeat (1000)
     yyc_mutex_release("m");
 }
 ```
+
+# Libraries
+Following is a list of libraries available for YYC Overwrite.
+
+* [yyc-tasks](https://github.com/kraifpatrik/yyc-tasks)
