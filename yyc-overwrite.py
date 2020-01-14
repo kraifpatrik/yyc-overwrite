@@ -54,6 +54,10 @@ def process_file(cpp_path, build):
 
 
 if __name__ == "__main__":
+    yyc_overwrite_dir = os.path.dirname(os.path.realpath(__file__))
+    config_fname = "config.json"
+    config_fpath = os.path.join(yyc_overwrite_dir, config_fname)
+
     if len(sys.argv) > 1:
         # Load cache directory from command line (no injection, only cleanup,
         # handy for GMS1.4)
@@ -64,10 +68,10 @@ if __name__ == "__main__":
         save_conf = False
 
         try:
-            with open("config.json") as file:
+            with open(config_fpath) as file:
                 config = json.load(file)
             build_bff_dir = config["build_bff"]
-            print("Loaded config.json")
+            print(f"Loaded {config_fname}")
         except:
             save_conf = True
             config = {}
@@ -82,7 +86,7 @@ if __name__ == "__main__":
             save_conf = True
 
         if save_conf:
-            with open("config.json", "w") as file:
+            with open(config_fpath, "w") as file:
                 json.dump(config, file, indent=2)
             print("Saved config")
 
@@ -109,8 +113,9 @@ if __name__ == "__main__":
             exit()
 
         # Copy custom headers
-        for f in os.listdir("./cpp"):
-            copy_file(os.path.join("./cpp", f), path_cpp)
+        _cpp_dir = os.path.join(yyc_overwrite_dir, "cpp")
+        for f in os.listdir(_cpp_dir):
+            copy_file(os.path.join(_cpp_dir, f), path_cpp)
 
          # Modify C++ files
         for root, _, files in os.walk(path_cpp):
