@@ -1,4 +1,3 @@
-import getpass
 import json
 import os
 
@@ -11,8 +10,7 @@ class BuildBff:
         path (str): Path to the build.bff file.
     """
 
-    PATH_DEFAULT = "C:\\Users\\{}\\AppData\\Local\\GameMakerStudio2\\GMS2TEMP\\build.bff".format(
-        getpass.getuser())
+    PATH_DEFAULT = os.path.expandvars("%LOCALAPPDATA%\\GameMakerStudio2\\GMS2TEMP\\build.bff")
     """ The default path to the build.bff file on Windows. """
 
     def __init__(self, path):
